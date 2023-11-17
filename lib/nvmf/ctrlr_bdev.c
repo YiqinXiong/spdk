@@ -206,6 +206,75 @@ nvmf_bdev_ctrlr_get_rw_params(const struct spdk_nvme_cmd *cmd, uint64_t *start_l
 	*num_blocks = (from_le32(&cmd->cdw12) & 0xFFFFu) + 1;
 }
 
+static void
+nvmf_bdev_ctrlr_complete_read_kv_cmd(struct spdk_bdev_io *bdev_io, bool success,
+			     void *cb_arg)
+{
+	struct spdk_nvmf_request	*req = cb_arg;
+	struct spdk_nvme_cpl		*response = &req->rsp->nvme_cpl;
+	int				first_sc = 0, first_sct = 0, sc = 0, sct = 0;
+	uint32_t			cdw0 = 0;
+	struct spdk_nvmf_request	*first_req = req->first_fused_req;
+	// @xyq add BEGIN
+	// struct iovec *iov_pointer = NULL;
+	// uint32_t iovcnt = req->iovcnt;
+	struct spdk_nvme_cmd *cmd = &req->cmd->nvme_cmd;
+	// @xyq add END
+
+	// @xyq add BEGIN
+	// 获取start_lba和num_blocks
+	// struct spdk_nvme_cpl *rsp = &req->rsp->nvme_cpl;
+	uint64_t start_lba;
+	uint64_t num_blocks;
+	
+	nvmf_bdev_ctrlr_get_rw_params(cmd, &start_lba, &num_blocks);
+	// @xyq add END
+
+	// @xyq add BEGIN
+	// 1. 从cmd中解析kv item在page（block）中的offset
+	uint64_t item_offset = ((uint64_t)cmd->rsvd2 << 32) | (uint64_t)cmd->rsvd3;	// 从DW2和DW3拼凑而来
+	// 2. 从iov对应的数据中拼凑出block
+	// 3. 在block中找到key对应的value
+	// 4. 把value放入iov，更新iov的size以及iov的数量
+
+	SPDK_PRINTF("Get item_offset: %lu\n", item_offset);
+	SPDK_PRINTF("Get start_lba: %lu\n", start_lba);
+	SPDK_PRINTF("Get num_blocks: %lu\n", num_blocks);
+
+	// // @xyq: the first iov is header, recording req type and location info
+	// iov_pointer = &req->iov[0];
+	// iov_pointer->iov_base;	// req
+	// // @xyq: the last iov saving the result status of req
+	// iov_pointer = &req->iov[iovcnt - 1];
+	// iov_pointer->iov_base;	// task status
+	// // @xyq: the middle part is data part
+
+	// @xyq add END
+
+	if (spdk_unlikely(first_req != NULL)) {
+		/* fused commands - get status for both operations */
+		struct spdk_nvme_cpl *first_response = &first_req->rsp->nvme_cpl;
+
+		spdk_bdev_io_get_nvme_fused_status(bdev_io, &cdw0, &first_sct, &first_sc, &sct, &sc);
+		first_response->cdw0 = cdw0;
+		first_response->status.sc = first_sc;
+		first_response->status.sct = first_sct;
+
+		/* first request should be completed */
+		spdk_nvmf_request_complete(first_req);
+		req->first_fused_req = NULL;
+	} else {
+		spdk_bdev_io_get_nvme_status(bdev_io, &cdw0, &sct, &sc);
+	}
+
+	response->cdw0 = cdw0;
+	response->status.sc = sc;
+	response->status.sct = sct;
+
+	spdk_nvmf_request_complete(req);
+	spdk_bdev_free_io(bdev_io);
+}
+
 static bool
 nvmf_bdev_ctrlr_lba_in_range(uint64_t bdev_num_blocks, uint64_t io_start_lba,
 			     uint64_t io_num_blocks)
@@ -302,7 +371,10 @@ nvmf_bdev_ctrlr_read_cmd(struct spdk_bdev *bdev, struct spdk_bdev_desc *desc,
 	assert(!spdk_nvmf_request_using_zcopy(req));
 
 	rc = spdk_bdev_readv_blocks_ext(desc, ch, req->iov, req->iovcnt, start_lba, num_blocks,
-					nvmf_bdev_ctrlr_complete_cmd, req, &opts);
+				cmd->opc == SPDK_NVME_OPC_READ
+					? nvmf_bdev_ctrlr_complete_cmd
+					: nvmf_bdev_ctrlr_complete_read_kv_cmd,
+					req, &opts);
 	if (spdk_unlikely(rc)) {
 		if (rc == -ENOMEM) {
 			nvmf_bdev_ctrl_queue_io(req, bdev, ch, nvmf_ctrlr_process_io_cmd_resubmit, req);
@@ -943,7 +1015,7 @@ nvmf_bdev_ctrlr_zcopy_start(struct spdk_bdev *bdev,
 		return SPDK_NVMF_REQUEST_EXEC_STATUS_COMPLETE;
 	}
 
-	bool populate = (req->cmd->nvme_cmd.opc == SPDK_NVME_OPC_READ) ? true : false;
+	bool populate = (req->cmd->nvme_cmd.opc == SPDK_NVME_OPC_READ || req->cmd->nvme_cmd.opc == SPDK_NVME_OPC_READ_KV) ? true : false;
 
 	rc = spdk_bdev_zcopy_start(desc, ch, req->iov, req->iovcnt, start_lba,
 				   num_blocks, populate, nvmf_bdev_ctrlr_zcopy_start_complete, req);

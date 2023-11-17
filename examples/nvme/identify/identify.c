@@ -1558,6 +1558,8 @@ io_opc_name(uint8_t opc)
 		return "Write";
 	case SPDK_NVME_OPC_READ:
 		return "Read";
+	case SPDK_NVME_OPC_READ_KV:
+		return "Read KV";
 	case SPDK_NVME_OPC_WRITE_UNCORRECTABLE:
 		return "Write Uncorrectable";
 	case SPDK_NVME_OPC_COMPARE:

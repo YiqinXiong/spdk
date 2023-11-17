@@ -1419,8 +1419,8 @@ nvme_pcie_qpair_build_hw_sgl_request(struct spdk_nvme_qpair *qpair, struct nvme_
 		/* Bit Bucket SGL descriptor */
 		if ((uint64_t)virt_addr == UINT64_MAX) {
 			/* TODO: enable WRITE and COMPARE when necessary */
-			if (req->cmd.opc != SPDK_NVME_OPC_READ) {
-				SPDK_ERRLOG("Only READ command can be supported\n");
+			if (req->cmd.opc != SPDK_NVME_OPC_READ && req->cmd.opc != SPDK_NVME_OPC_READ_KV) {
+				SPDK_ERRLOG("Only READ and READ_KV command can be supported\n");
 				goto exit;
 			}
 			if (nseg >= NVME_MAX_SGL_DESCRIPTORS) {

@@ -612,6 +612,7 @@ cuse_nvme_submit_io(fuse_req_t req, int cmd, void *arg,
 	md_size = spdk_nvme_ns_get_md_size(ns);
 
 	switch (user_io->opcode) {
+	case SPDK_NVME_OPC_READ_KV:
 	case SPDK_NVME_OPC_READ:
 		out_iov[out_iovcnt].iov_base = (void *)user_io->addr;
 		out_iov[out_iovcnt].iov_len = (user_io->nblocks + 1) * block_size;

@@ -3330,6 +3330,32 @@ int spdk_nvme_ns_cmd_read(struct spdk_nvme_ns *ns, struct spdk_nvme_qpair *qpair
 			  void *cb_arg, uint32_t io_flags);
 
 /**
+ * \brief Submits a read I/O to the specified NVMe namespace.
+ *
+ * The command is submitted to a qpair allocated by spdk_nvme_ctrlr_alloc_io_qpair().
+ * The user must ensure that only one thread submits I/O on a given qpair at any
+ * given time.
+ *
+ * \param ns NVMe namespace to submit the read I/O.
+ * \param qpair I/O queue pair to submit the request.
+ * \param payload Virtual address pointer to the data payload.
+ * \param lba Starting LBA to read the data.
+ * \param lba_count Length (in sectors) for the read operation.
+ * \param item_offset Offset of KV item in block to find. (@xyq)
+ * \param cb_fn Callback function to invoke when the I/O is completed.
+ * \param cb_arg Argument to pass to the callback function.
+ * \param io_flags Set flags, defined in nvme_spec.h, for this I/O.
+ *
+ * \return 0 if successfully submitted, negated errnos on the following error conditions:
+ * -EINVAL: The request is malformed.
+ * -ENOMEM: The request cannot be allocated.
+ * -ENXIO: The qpair is failed at the transport level.
+ */
+int spdk_nvme_ns_cmd_read_kv(struct spdk_nvme_ns *ns, struct spdk_nvme_qpair *qpair, void *payload,
+			  uint64_t lba, uint32_t lba_count, uint64_t item_offset, spdk_nvme_cmd_cb cb_fn,
+			  void *cb_arg, uint32_t io_flags);
+
+/**
  * Submit a read I/O to the specified NVMe namespace.
  *
  * The command is submitted to a qpair allocated by spdk_nvme_ctrlr_alloc_io_qpair().

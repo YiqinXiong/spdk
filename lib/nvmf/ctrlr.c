@@ -2431,6 +2431,8 @@ static const struct spdk_nvme_cmds_and_effect_log_page g_cmds_and_effect_log_pag
 		[SPDK_NVME_OPC_WRITE]			= {1, 1, 0, 0, 0, 0, 0, 0},
 		/* READ */
 		[SPDK_NVME_OPC_READ]			= {1, 0, 0, 0, 0, 0, 0, 0},
+		/* READ KV */
+		[SPDK_NVME_OPC_READ_KV]			= {1, 0, 0, 0, 0, 0, 0, 0},
 		/* WRITE ZEROES */
 		[SPDK_NVME_OPC_WRITE_ZEROES]		= {1, 1, 0, 0, 0, 0, 0, 0},
 		/* DATASET MANAGEMENT */
@@ -4129,8 +4131,9 @@ nvmf_ctrlr_use_zcopy(struct spdk_nvmf_request *req)
 	}
 
 	if ((req->cmd->nvme_cmd.opc != SPDK_NVME_OPC_WRITE) &&
-	    (req->cmd->nvme_cmd.opc != SPDK_NVME_OPC_READ)) {
-		/* Not a READ or WRITE command */
+	    (req->cmd->nvme_cmd.opc != SPDK_NVME_OPC_READ) &&
+		(req->cmd->nvme_cmd.opc != SPDK_NVME_OPC_READ_KV)) {
+		/* Not a READ or WRITE or READ_KV command */
 		return false;
 	}
 
@@ -4257,6 +4260,7 @@ nvmf_ctrlr_process_io_cmd(struct spdk_nvmf_request *req)
 		return nvmf_bdev_ctrlr_zcopy_start(bdev, desc, ch, req);
 	} else {
 		switch (cmd->opc) {
+		case SPDK_NVME_OPC_READ_KV:
 		case SPDK_NVME_OPC_READ:
 			return nvmf_bdev_ctrlr_read_cmd(bdev, desc, ch, req);
 		case SPDK_NVME_OPC_WRITE:
@@ -4591,6 +4595,7 @@ nvmf_ctrlr_get_dif_ctx(struct spdk_nvmf_ctrlr *ctrlr, struct spdk_nvme_cmd *cmd,
 
 	switch (cmd->opc) {
 	case SPDK_NVME_OPC_READ:
+	case SPDK_NVME_OPC_READ_KV:
 	case SPDK_NVME_OPC_WRITE:
 	case SPDK_NVME_OPC_COMPARE:
 		return nvmf_bdev_ctrlr_get_dif_ctx(bdev, cmd, dif_ctx);

@@ -655,6 +655,50 @@ spdk_nvme_ns_cmd_read(struct spdk_nvme_ns *ns, struct spdk_nvme_qpair *qpair, vo
 }
 
 int
+spdk_nvme_ns_cmd_read_kv(struct spdk_nvme_ns *ns, struct spdk_nvme_qpair *qpair, void *buffer,
+		      uint64_t lba,
+		      uint32_t lba_count,
+			  uint64_t item_offset, spdk_nvme_cmd_cb cb_fn, void *cb_arg,
+		      uint32_t io_flags)
+{
+	struct nvme_request *req;
+	struct nvme_payload payload;
+	int rc = 0;
+
+	if (!_is_io_flags_valid(io_flags)) {
+		return -EINVAL;
+	}
+
+	payload = NVME_PAYLOAD_CONTIG(buffer, NULL);
+
+	req = _nvme_ns_cmd_rw(ns, qpair, &payload, 0, 0, lba, lba_count, cb_fn, cb_arg, SPDK_NVME_OPC_READ_KV,
+			      io_flags, 0,
+			      0, 0, false, NULL, &rc);
+	
+	// @xyq add BEGIN
+	if (ns->flags & SPDK_NVME_NS_DPS_PI_SUPPORTED) {
+		// @xyq: 说明开启了端到端保护，需要占用cdw2、3、14、15，就不能用这四个字段传递key
+		// 详见 https://nvmexpress.org/specifications/#content-13263 NVM Command Set Specification 章节3.2.4
+		SPDK_PRINTF("End-to-end protection opened!\n");
+	} else {
+		// @xyq: 高32位放在cmd.rsvd2，低32位放在cmd.rsvd3
+		req->cmd.rsvd2 = (uint32_t)((item_offset & 0xFFFFFFFF00000000LL) >> 32);
+		req->cmd.rsvd3 = (uint32_t)(item_offset & 0xFFFFFFFFLL);
+	}
+	// @xyq add END
+
+	if (req != NULL) {
+		return nvme_qpair_submit_request(qpair, req);
+	} else {
+		return nvme_ns_map_failure_rc(lba_count,
+					      ns->sectors_per_max_io,
+					      ns->sectors_per_stripe,
+					      qpair->ctrlr->opts.io_queue_requests,
+					      rc);
+	}
+}
+
+int
 spdk_nvme_ns_cmd_read_with_md(struct spdk_nvme_ns *ns, struct spdk_nvme_qpair *qpair, void *buffer,
 			      void *metadata,
 			      uint64_t lba,
