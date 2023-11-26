@@ -427,12 +427,12 @@ build_eal_cmdline(const struct spdk_env_opts *opts)
 		 * virtual machines) don't have an IOMMU capable of handling the full virtual
 		 * address space and DPDK doesn't currently catch that. Add a check in SPDK
 		 * and force iova-mode=pa here. */
-		if (get_iommu_width() < SPDK_IOMMU_VA_REQUIRED_WIDTH) {
-			args = push_arg(args, &argcount, _sprintf_alloc("--iova-mode=pa"));
-			if (args == NULL) {
-				return -1;
-			}
-		}
+		// if (get_iommu_width() < SPDK_IOMMU_VA_REQUIRED_WIDTH) {
+		// 	args = push_arg(args, &argcount, _sprintf_alloc("--iova-mode=pa"));
+		// 	if (args == NULL) {
+		// 		return -1;
+		// 	}
+		// }
 #elif defined(__PPC64__)
 		/* On Linux + PowerPC, DPDK doesn't support VA mode at all. Unfortunately, it doesn't correctly
 		 * auto-detect at the moment, so we'll just force it here. */
