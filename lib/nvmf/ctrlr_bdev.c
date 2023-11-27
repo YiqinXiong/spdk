@@ -237,9 +237,9 @@ nvmf_bdev_ctrlr_complete_read_kv_cmd(struct spdk_bdev_io *bdev_io, bool success,
 	// 3. 在block中找到key对应的value
 	// 4. 把value放入iov，更新iov的size以及iov的数量
 
-	SPDK_PRINTF("Get item_offset: %lu\n", item_offset);
-	SPDK_PRINTF("Get start_lba: %lu\n", start_lba);
-	SPDK_PRINTF("Get num_blocks: %lu\n", num_blocks);
+	SPDK_NOTICELOG("Get item_offset: %lu\n", item_offset);
+	SPDK_NOTICELOG("Get start_lba: %lu\n", start_lba);
+	SPDK_NOTICELOG("Get num_blocks: %lu\n", num_blocks);
 
 	// // @xyq: the first iov is header, recording req type and location info
 	// iov_pointer = &req->iov[0];

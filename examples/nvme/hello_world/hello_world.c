@@ -120,9 +120,10 @@ write_complete(void *arg, const struct spdk_nvme_cpl *completion)
 	}
 	sequence->buf = spdk_zmalloc(0x1000, 0x1000, NULL, SPDK_ENV_SOCKET_ID_ANY, SPDK_MALLOC_DMA);
 
-	rc = spdk_nvme_ns_cmd_read(ns_entry->ns, ns_entry->qpair, sequence->buf,
+	rc = spdk_nvme_ns_cmd_read_kv(ns_entry->ns, ns_entry->qpair, sequence->buf,
 				   0, /* LBA start */
 				   1, /* number of LBAs */
+				   1234,
 				   read_complete, (void *)sequence, 0);
 	if (rc != 0) {
 		fprintf(stderr, "starting read I/O failed\n");
