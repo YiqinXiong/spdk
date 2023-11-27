@@ -21,6 +21,7 @@
 #include "spdk/util.h"
 
 #include "spdk/log.h"
+#include <bits/stdint-uintn.h>
 
 static bool
 nvmf_subsystem_bdev_io_type_supported(struct spdk_nvmf_subsystem *subsystem,
@@ -216,8 +217,8 @@ nvmf_bdev_ctrlr_complete_read_kv_cmd(struct spdk_bdev_io *bdev_io, bool success,
 	uint32_t			cdw0 = 0;
 	struct spdk_nvmf_request	*first_req = req->first_fused_req;
 	// @xyq add BEGIN
-	// struct iovec *iov_pointer = NULL;
-	// uint32_t iovcnt = req->iovcnt;
+	struct iovec *iov_pointer = NULL;
+	uint32_t iovcnt = req->iovcnt;
 	struct spdk_nvme_cmd *cmd = &req->cmd->nvme_cmd;
 	// @xyq add END
 
@@ -234,12 +235,23 @@ nvmf_bdev_ctrlr_complete_read_kv_cmd(struct spdk_bdev_io *bdev_io, bool success,
 	// 1. 从cmd中解析kv item在page（block）中的offset
 	uint64_t item_offset = ((uint64_t)cmd->rsvd2 << 32) | (uint64_t)cmd->rsvd3;	// 从DW2和DW3拼凑而来
 	// 2. 从iov对应的数据中拼凑出block
+	iov_pointer = &req->iov[0];
 	// 3. 在block中找到key对应的value
 	// 4. 把value放入iov，更新iov的size以及iov的数量
 
 	SPDK_NOTICELOG("Get item_offset: %lu\n", item_offset);
 	SPDK_NOTICELOG("Get start_lba: %lu\n", start_lba);
 	SPDK_NOTICELOG("Get num_blocks: %lu\n", num_blocks);
+	SPDK_NOTICELOG("Get iov_cnt: %u\n", iovcnt);
+
+	uint32_t iov_idx = 0;
+	for (; iov_idx < iovcnt; ++iov_idx) {
+		SPDK_NOTICELOG("iov #%u: addr=%p, len=%lu, content=%.*s\n", iov_idx,
+						iov_pointer->iov_base, iov_pointer->iov_len,
+						(int)iov_pointer->iov_len,
+						(char *)iov_pointer->iov_base);
+		++iov_pointer;
+	}
 
 	// // @xyq: the first iov is header, recording req type and location info
 	// iov_pointer = &req->iov[0];
